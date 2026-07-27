@@ -1,0 +1,36 @@
+{
+    "name": "kadiaak/rowbase-php",
+    "description": "Connecteur PHP pour l'API REST Rowbase (https://rowbase.co/docs/reference/api)",
+    "type": "library",
+    "keywords": ["rowbase", "api", "client", "sdk", "connector"],
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1",
+        "ext-curl": "*",
+        "ext-json": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
+    "suggest": {
+        "psr/http-client": "Pour brancher un client HTTP PSR-18 (Guzzle, Symfony HttpClient) via Rowbase\\Http\\Psr18Transport",
+        "psr/http-factory": "Requis par Rowbase\\Http\\Psr18Transport"
+    },
+    "autoload": {
+        "psr-4": {
+            "Rowbase\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Rowbase\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable"
+}
