@@ -240,6 +240,57 @@ final class SheetTest extends TestCase
         self::assertSame(1, $this->transport->count());
     }
 
+    public function testWherePushesTheServerFilter(): void
+    {
+        $this->transport->push(['records' => [
+            ['id' => 'a', 'fields' => ['Email' => 'cible@y.z']],
+        ]]);
+
+        $ids = \array_map(
+            static fn (Record $r): string => $r->id,
+            \iterator_to_array($this->sheet->where('Email', 'cible@y.z'), false),
+        );
+
+        self::assertSame(['a'], $ids);
+        self::assertStringContainsString(
+            'filter[field]=Email',
+            \rawurldecode($this->transport->lastRequest()->url),
+        );
+    }
+
+    public function testExistsSendsServerFilterAndConfirmsTheMatch(): void
+    {
+        $this->transport->push(['records' => [
+            ['id' => 'a', 'fields' => ['Email' => 'cible@y.z']],
+        ]]);
+
+        self::assertTrue($this->sheet->exists('Email', 'cible@y.z'));
+        self::assertSame(1, $this->transport->count());
+
+        $url = \rawurldecode($this->transport->lastRequest()->url);
+        self::assertStringContainsString('filter[field]=Email', $url);
+        self::assertStringContainsString('filter[value]=cible@y.z', $url);
+        self::assertStringContainsString('pageSize=1', $url);
+    }
+
+    public function testExistsIsFalseOnAnEmptyResult(): void
+    {
+        $this->transport->push(['records' => []]);
+
+        self::assertFalse($this->sheet->exists('Email', 'nope@y.z'));
+    }
+
+    public function testExistsRefusesAFalsePositiveFromALegacyApi(): void
+    {
+        // Une API qui ignore le filtre renvoie une ligne quelconque : la
+        // revérification de la valeur doit écarter ce faux positif.
+        $this->transport->push(['records' => [
+            ['id' => 'a', 'fields' => ['Email' => 'autre@y.z']],
+        ]]);
+
+        self::assertFalse($this->sheet->exists('Email', 'cible@y.z'));
+    }
+
     public function testCountWalksEveryPage(): void
     {
         $this->transport

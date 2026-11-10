@@ -9,12 +9,13 @@ namespace Rowbase;
  *
  *     Query::make()
  *         ->fields('ID', 'Email')
+ *         ->filter('ID', 'rec-123')
  *         ->sort('Date', 'desc')
  *         ->pageSize(50)
  *         ->maxRecords(200);
  *
- * Rappel : l'API Rowbase ne propose pas de filtre côté serveur. Le filtrage se
- * fait côté client (voir Sheet::where() / Sheet::findBy()).
+ * L'API Rowbase filtre sur l'égalité d'une seule colonne (voir filter()) ;
+ * tout filtrage plus riche reste à faire côté client (Sheet::where()).
  */
 final class Query
 {
@@ -27,6 +28,7 @@ final class Query
     /**
      * @param list<string>                                     $fields
      * @param list<array{field:string,direction:string}>       $sort
+     * @param array{field:string,value:mixed}|null             $filter
      */
     private function __construct(
         private readonly ?int $pageSize = null,
@@ -35,6 +37,7 @@ final class Query
         private readonly array $fields = [],
         private readonly array $sort = [],
         private readonly ?bool $returnFieldsByFieldId = null,
+        private readonly ?array $filter = null,
     ) {
     }
 
@@ -86,6 +89,12 @@ final class Query
                 (bool) ($query['returnFieldsByFieldId'] ?? $query['return_fields_by_field_id']),
             );
         }
+        if (
+            isset($query['filter']) && \is_array($query['filter'])
+            && isset($query['filter']['field']) && \array_key_exists('value', $query['filter'])
+        ) {
+            $result = $result->filter((string) $query['filter']['field'], $query['filter']['value']);
+        }
 
         return $result;
     }
@@ -130,6 +139,16 @@ final class Query
     public function fields(string ...$fields): self
     {
         return $this->copy(fields: [...$this->fields, ...\array_values($fields)]);
+    }
+
+    /**
+     * Restreint le résultat aux lignes dont la colonne $field vaut $value,
+     * côté serveur. L'API ne filtre que sur l'égalité d'une seule colonne :
+     * un second appel remplace le filtre précédent.
+     */
+    public function filter(string $field, mixed $value): self
+    {
+        return $this->copy(filter: ['field' => $field, 'value' => $value]);
     }
 
     /**
@@ -195,6 +214,9 @@ final class Query
         if ($this->returnFieldsByFieldId !== null) {
             $params['returnFieldsByFieldId'] = $this->returnFieldsByFieldId;
         }
+        if ($this->filter !== null) {
+            $params['filter'] = $this->filter;
+        }
 
         return $params;
     }
@@ -202,6 +224,7 @@ final class Query
     /**
      * @param list<string>                              $fields
      * @param list<array{field:string,direction:string}> $sort
+     * @param array{field:string,value:mixed}|null      $filter
      * @param list<string>                              $unset
      */
     private function copy(
@@ -211,6 +234,7 @@ final class Query
         ?array $fields = null,
         ?array $sort = null,
         ?bool $returnFieldsByFieldId = null,
+        ?array $filter = null,
         array $unset = [],
     ): self {
         return new self(
@@ -220,6 +244,7 @@ final class Query
             fields: $fields ?? $this->fields,
             sort: $sort ?? $this->sort,
             returnFieldsByFieldId: $returnFieldsByFieldId ?? $this->returnFieldsByFieldId,
+            filter: $filter ?? $this->filter,
         );
     }
 }

@@ -151,9 +151,13 @@ final class Sheet
     }
 
     /**
-     * Filtrage côté client : l'API Rowbase n'expose pas de filtre serveur, donc
-     * les pages sont parcourues jusqu'à trouver les correspondances.
-     * Sur une grosse feuille, restreignez d'abord les colonnes via Query::fields().
+     * Lignes dont la colonne $field vaut $value.
+     *
+     * L'égalité est poussée côté serveur via Query::filter(), ce qui évite de
+     * rapatrier toute la feuille. La comparaison est aussi refaite en mémoire :
+     * c'est un garde-fou si l'API ne connaît pas encore le filtre serveur (elle
+     * renvoie alors toute la feuille) et si elle compare différemment du strict
+     * PHP. Sur une grosse feuille, restreignez les colonnes via Query::fields().
      *
      * @param Query|array<string,mixed>|null $query
      *
@@ -161,11 +165,29 @@ final class Sheet
      */
     public function where(string $field, mixed $value, Query|array|null $query = null): \Generator
     {
-        foreach ($this->all($query) as $record) {
+        foreach ($this->all(Query::coerce($query)->filter($field, $value)) as $record) {
             if ($record->get($field) === $value) {
                 yield $record;
             }
         }
+    }
+
+    /**
+     * Vrai dès qu'une ligne porte $value dans la colonne $field.
+     *
+     * Une seule requête : l'égalité est évaluée côté serveur et seule une
+     * ligne est demandée. À préférer à un parcours complet quand on cherche
+     * juste à savoir si une valeur existe déjà (test d'unicité avant insertion).
+     *
+     * La valeur renvoyée est revérifiée : si l'API ne connaît pas encore le
+     * filtre serveur, elle renverrait une ligne quelconque — on refuse ce faux
+     * positif plutôt que de laisser croire à une existence.
+     */
+    public function exists(string $field, mixed $value): bool
+    {
+        $record = $this->list(Query::make()->filter($field, $value)->fields($field)->pageSize(1))->first();
+
+        return $record !== null && $record->get($field) === $value;
     }
 
     /**

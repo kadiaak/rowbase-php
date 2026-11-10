@@ -109,12 +109,23 @@ $record = $sheet->first(Query::make()->sortDesc('Date'));        // la plus réc
 
 ### Filtrer
 
-L'API Rowbase n'expose pas de filtre côté serveur : `where()` et `findBy()` parcourent les pages et filtrent en PHP. Sur une grande feuille, limitez d'abord les colonnes avec `Query::fields()`.
+L'API Rowbase filtre sur l'égalité d'une seule colonne. `where()`, `findBy()` et
+`exists()` poussent ce filtre côté serveur (via `Query::filter()`) pour ne pas
+rapatrier toute la feuille ; `where()` et `findBy()` revérifient l'égalité en PHP,
+ce qui les garde corrects face à une API plus ancienne qui ignorerait le filtre.
 
 ```php
 $client = $sheet->findBy('Email', 'contact@example.com');
 
 foreach ($sheet->where('Statut', 'à traiter') as $record) { /* … */ }
+
+// Test d'existence rapide (une seule requête) — idéal avant une insertion.
+if (! $sheet->exists('Id', 'rec-123')) {
+    $sheet->create(['Id' => 'rec-123', 'Email' => 'contact@example.com']);
+}
+
+// Ou directement dans une requête :
+$page = $sheet->list(Query::make()->filter('Id', 'rec-123')->pageSize(1));
 ```
 
 ### L'objet `Record`

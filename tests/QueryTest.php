@@ -85,4 +85,25 @@ final class QueryTest extends TestCase
     {
         self::assertSame('a=1', QueryString::build(['a' => 1, 'b' => null]));
     }
+
+    public function testFilterSerializesFieldAndValue(): void
+    {
+        $string = \rawurldecode(QueryString::build(Query::make()->pageSize(1)->filter('Id', 'rec-123')->toParams()));
+
+        self::assertSame('pageSize=1&filter[field]=Id&filter[value]=rec-123', $string);
+    }
+
+    public function testFilterReplacesThePreviousOne(): void
+    {
+        $query = Query::make()->filter('A', '1')->filter('B', '2');
+
+        self::assertSame(['filter' => ['field' => 'B', 'value' => '2']], $query->toParams());
+    }
+
+    public function testCoerceAcceptsFilter(): void
+    {
+        $query = Query::coerce(['filter' => ['field' => 'Id', 'value' => 'abc']]);
+
+        self::assertSame(['filter' => ['field' => 'Id', 'value' => 'abc']], $query->toParams());
+    }
 }
